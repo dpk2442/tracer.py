@@ -3,7 +3,114 @@
 
 import curses
 
-class Scroller(object):
+class MainWin(object):
+
+    def __init__(self, stdscr):
+        self.window = stdscr
+        self.isDetailPaneOpen = False
+        self.detailPane = None
+        curses.init_pair(1, curses.COLOR_BLACK, curses.COLOR_WHITE)
+        curses.curs_set(0) # Hide cursor
+        self.setupDataList(stdscr)
+        self.redraw()
+        self.listenForKeys()
+
+    def setupDataList(self, stdscr):
+        self.dataList = DataList(stdscr)
+        for i in range(0, 100):
+            detailPad = DetailPane(stdscr, "Data #{}\n1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n11\n12\n13\n14\n15\n16\n17\n18\n19\n20\n21\n22\n23\n24\nhi\nreally really really really really really really really really long line wow i am way to good and typing the word really ok this still needs to be longer".format(i+1))
+            self.dataList.addItem("Line {} of text.".format(i+1), detailPad)
+        self.dataList.scrollBottom()
+
+    def refresh(self):
+        self.window.refresh()
+        self.dataList.redraw()
+
+    def redraw(self):
+        screenLines, screenCols = self.window.getmaxyx()
+        borderHorizontal = "─" * screenCols
+        self.window.clear()
+        self.window.addstr(0, 0, "Title Text".center(screenCols), curses.color_pair(1));
+        if self.isDetailPaneOpen:
+            self.window.addstr(5, 0, borderHorizontal, curses.color_pair(0))
+        self.window.addstr(1, 0, borderHorizontal, curses.color_pair(0))
+        self.window.addstr(screenLines - 2, 0, borderHorizontal, curses.color_pair(0))
+        try:
+            self.window.addstr(screenLines - 1, 0, " Footer Text".ljust(screenCols), curses.color_pair(1))
+        except: pass
+        self.refresh()
+        if self.isDetailPaneOpen:
+            self.detailPane.refresh()
+
+    def listenForKeys(self):
+        key = ''
+        while (key != ord('q')):
+            key = self.window.getch()
+            # k or up arrow
+            if key == ord('k') or key == curses.KEY_UP:
+                if not self.isDetailPaneOpen:
+                    self.dataList.scrollUp()
+                else:
+                    self.detailPane.scrollUp()
+            # j or down arrow
+            elif key == ord('j') or key == curses.KEY_DOWN:
+                if not self.isDetailPaneOpen:
+                    self.dataList.scrollDown()
+                else:
+                    self.detailPane.scrollDown()
+            # h or left arrow
+            elif key == ord('h') or key == curses.KEY_LEFT:
+                if self.isDetailPaneOpen:
+                    self.detailPane.scrollLeft()
+            # l or right arrow
+            elif key == ord('l') or key == curses.KEY_RIGHT:
+                if self.isDetailPaneOpen:
+                    self.detailPane.scrollRight()
+            # n
+            elif key == ord('n'):
+                self.dataList.scrollDown()
+                self.openDetailPane()
+            # p
+            elif key == ord('p'):
+                self.dataList.scrollUp()
+                self.openDetailPane()
+            # g or home key
+            elif key == ord('g') or key == curses.KEY_HOME:
+                if not self.isDetailPaneOpen:
+                    self.dataList.scrollTop()
+            # G or end key
+            elif key == ord('G') or key == curses.KEY_END:
+                if not self.isDetailPaneOpen:
+                    self.dataList.scrollBottom()
+            # page up
+            elif key == curses.KEY_NPAGE:
+                if not self.isDetailPaneOpen:
+                    self.dataList.scrollPageUp()
+            # page down
+            elif key == curses.KEY_PPAGE:
+                if not self.isDetailPaneOpen:
+                    self.dataList.scrollPageDown()
+            # enter
+            elif key == ord('\n'):
+                if not self.isDetailPaneOpen:
+                    self.openDetailPane()
+                else:
+                    self.closeDetailPane()
+
+    def openDetailPane(self):
+        self.isDetailPaneOpen = True
+        self.detailPane = self.dataList.getSelection()[1]
+        self.dataList.shrink()
+        self.redraw()
+
+    def closeDetailPane(self):
+        self.isDetailPaneOpen = False
+        self.detailPane = None
+        self.dataList.grow()
+        self.redraw()
+
+
+class DataList(object):
 
     def __init__(self, parentWin):
         screensize       = parentWin.getmaxyx()
@@ -14,6 +121,7 @@ class Scroller(object):
         self.index       = 0
         self.screenPos   = 0
         self.items       = []
+        self.itemData    = []
         self.numItems    = 0
 
         self.window.keypad(1)
@@ -36,9 +144,19 @@ class Scroller(object):
             lineCount += 1
         self.window.refresh()
 
-    def writeLine(self, line):
-        self.items.append(line)
+    def addItem(self, itemText, itemData):
+        self.items.append(itemText)
+        self.itemData.append(itemData)
         self.numItems += 1
+
+    def getSelection(self):
+        return (self.items[self.index], self.itemData[self.index])
+
+    def _fixScroll(self):
+        ''' Change the screePos without changing index so there is no whitespace after the last line. '''
+        if self.index + (self.screenLines - self.screenPos) >= self.numItems:
+            self.screenPos = self.screenLines - (self.numItems - self.index)
+            self.redraw()
 
     def scrollUp(self):
         self.index -= 1
@@ -102,49 +220,56 @@ class Scroller(object):
 
     def grow(self):
         self._resize(self.MAX_LINES)
+        self._fixScroll()
 
-def main(stdscr):
-    # Hide cursor
-    curses.curs_set(0)
+class DetailPane(object):
 
-    # Set up outer window
-    screenLines, screenCols = stdscr.getmaxyx()
-    borderHorizontal = "─" * screenCols
-    curses.init_pair(1, curses.COLOR_BLACK, curses.COLOR_WHITE)
-    stdscr.clear()
-    stdscr.addstr(0, 0, "Title Text".center(screenCols), curses.color_pair(1));
-    stdscr.addstr(1, 0, borderHorizontal, curses.color_pair(0))
-    stdscr.addstr(screenLines - 2, 0, borderHorizontal, curses.color_pair(0))
-    try:
-        stdscr.addstr(screenLines - 1, 0, " Footer Text".ljust(screenCols), curses.color_pair(1))
-    except: pass
+    def __init__(self, stdscr, data):
+        screenSize = stdscr.getmaxyx()
+        self.screenLines = screenSize[0] - 8
+        self.screenCols = screenSize[1]
+        self.linePos = 0
+        self.colPos = 0
+        self.numCols = 0
+        data = data.split("\n")
+        if isinstance(data, str):
+            data = [data]
+        self.numLines = len(data)
+        for line in data:
+            if len(line) > self.numCols:
+                self.numCols = len(line)
+        self.pad = curses.newpad(self.numLines, self.numCols)
+        for i in range(self.numLines):
+            try:
+                self.pad.addstr(i, 0, data[i])
+            except: pass
 
-    scroller = Scroller(stdscr)
+    def scrollDown(self):
+        self.linePos += 1
+        if self.linePos + self.screenLines >= self.numLines:
+            self.linePos = self.numLines - self.screenLines
+        self.refresh()
 
-    for i in range(0, 100):
-        scroller.writeLine("Line {} of text.".format(i+1))
-    scroller.scrollBottom()
+    def scrollUp(self):
+        self.linePos -= 1
+        if self.linePos < 0:
+            self.linePos = 0
+        self.refresh()
 
-    stdscr.refresh()
-    scroller.redraw()
+    def scrollRight(self):
+        self.colPos += 1
+        if self.colPos + self.screenCols >= self.numCols:
+            self.colPos = self.numCols - self.screenCols
+        self.refresh()
 
-    key = ''
-    while (key != ord('q')):
-        key = stdscr.getch()
-        if key == ord('k') or key == curses.KEY_UP:
-            scroller.scrollUp()
-        elif key == ord('j') or key == curses.KEY_DOWN:
-            scroller.scrollDown()
-        elif key == ord('g') or key == curses.KEY_HOME:
-            scroller.scrollTop()
-        elif key == ord('G') or key == curses.KEY_END:
-            scroller.scrollBottom()
-        elif key == curses.KEY_NPAGE: # page up
-            scroller.scrollPageUp()
-        elif key == curses.KEY_PPAGE: # page down
-            scroller.scrollPageDown()
-        elif key == ord('s'):
-            scroller.shrink()
+    def scrollLeft(self):
+        self.colPos -= 1
+        if self.colPos < 0:
+            self.colPos = 0
+        self.refresh()
+
+    def refresh(self):
+        self.pad.refresh(self.linePos,self.colPos, 6,0, self.screenLines+5,self.screenCols-1)
 
 if __name__ == "__main__":
-	curses.wrapper(main)
+	curses.wrapper(MainWin)
