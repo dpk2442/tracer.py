@@ -2,6 +2,8 @@
 # -*- coding: utf-8 -*-
 
 import curses
+import re
+import sys
 
 class MainWin(object):
 
@@ -83,11 +85,11 @@ class MainWin(object):
                 if not self.isDetailPaneOpen:
                     self.dataList.scrollBottom()
             # page up
-            elif key == curses.KEY_NPAGE:
+            elif key == curses.KEY_PPAGE:
                 if not self.isDetailPaneOpen:
                     self.dataList.scrollPageUp()
             # page down
-            elif key == curses.KEY_PPAGE:
+            elif key == curses.KEY_NPAGE:
                 if not self.isDetailPaneOpen:
                     self.dataList.scrollPageDown()
             # enter
@@ -257,13 +259,13 @@ class DetailPane(object):
         self.refresh()
 
     def scrollRight(self):
-        self.colPos += 1
+        self.colPos += 5
         if self.colPos + self.screenCols >= self.numCols:
             self.colPos = self.numCols - self.screenCols
         self.refresh()
 
     def scrollLeft(self):
-        self.colPos -= 1
+        self.colPos -= 5
         if self.colPos < 0:
             self.colPos = 0
         self.refresh()
@@ -271,5 +273,48 @@ class DetailPane(object):
     def refresh(self):
         self.pad.refresh(self.linePos,self.colPos, 6,0, self.screenLines+5,self.screenCols-1)
 
+ERROR_START = re.compile(r".*?ERROR")
+ERROR_MORE = re.compile(r"^... [0-9]*? more$")
+BLANK_LINE = re.compile(r"^\s*$")
+class stdinParser(object):
+    def __init__(self):
+        self.inError = False
+        self.hasReadException = False
+        for line in sys.stdin:
+            self.parseError(line)
+            if self.inError:
+                self.printErrorLine(line)
+            else:
+                self.printLogLine(line)
+
+    def parseError(self, line):
+        if self.inError:
+            if line.startswith("<") or (self.hasReadAt and not self.isContinuePattern(line)):
+                print("\n<<<<< ERROR END\n")
+                self.inError = False
+            self.hasReadAt = line.startswith("at ")
+            #if line.startswith("at ") and not self.hasReadAt:
+            #    self.hasReadAt = True
+        if ERROR_START.search(line):
+            print("\n>>>>> ERROR START\n")
+            self.inError = True
+            self.hasReadAt = False
+
+    def isContinuePattern(self, line):
+        return \
+            line.startswith("at ") or \
+            line.startswith("Caused by: ") or \
+            ERROR_MORE.match(line) or \
+            BLANK_LINE.match(line)
+
+    def printLogLine(self, line):
+        print(line, end="")
+
+    def printErrorLine(self, line):
+        print("\033[0;31m", line, "\033[0;0m", sep="", end="")
+
 if __name__ == "__main__":
-	curses.wrapper(MainWin)
+    if sys.stdin.isatty():
+    	curses.wrapper(MainWin)
+    else:
+        stdinParser()
