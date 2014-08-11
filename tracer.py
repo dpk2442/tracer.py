@@ -1,14 +1,23 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+import atexit
 import curses
+import os
 import re
+import sqlite3
 import sys
+
+
+########################
+## MAIN WINDOW OBJECT ##
+########################
 
 class MainWin(object):
 
-    def __init__(self, stdscr):
+    def __init__(self, stdscr, db):
         self.window = stdscr
+        self.db = db
         self.isDetailPaneOpen = False
         self.detailPane = None
         curses.init_pair(1, curses.COLOR_BLACK, curses.COLOR_WHITE)
@@ -19,9 +28,9 @@ class MainWin(object):
 
     def setupDataList(self, stdscr):
         self.dataList = DataList(stdscr)
-        for i in range(0, 100):
-            detailPad = DetailPane(stdscr, "Data #{}\n1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n11\n12\n13\n14\n15\n16\n17\n18\n19\n20\n21\n22\n23\n24\nhi\nreally really really really really really really really really long line wow i am way to good and typing the word really ok this still needs to be longer".format(i+1))
-            self.dataList.addItem("Line {} of text.".format(i+1), detailPad)
+        for error in self.db.fetchErrors():
+            detailPad = DetailPane(stdscr, error.fullError)
+            self.dataList.addItem(error.getListText(), detailPad)
         self.dataList.scrollBottom()
 
     def refresh(self):
@@ -80,10 +89,14 @@ class MainWin(object):
             elif key == ord('g') or key == curses.KEY_HOME:
                 if not self.isDetailPaneOpen:
                     self.dataList.scrollTop()
+                else:
+                    self.detailPane.scrollTop()
             # G or end key
             elif key == ord('G') or key == curses.KEY_END:
                 if not self.isDetailPaneOpen:
                     self.dataList.scrollBottom()
+                else:
+                    self.detailPane.scrollBottom()
             # page up
             elif key == curses.KEY_PPAGE:
                 if not self.isDetailPaneOpen:
@@ -111,6 +124,10 @@ class MainWin(object):
         self.dataList.grow()
         self.redraw()
 
+
+###############################
+## OBJECT FOR A LIST OF DATA ##
+###############################
 
 class DataList(object):
 
@@ -224,6 +241,11 @@ class DataList(object):
         self._resize(self.MAX_LINES)
         self._fixScroll()
 
+
+#####################################
+## A DETAIL PANE FOR THE DATA LIST ##
+#####################################
+
 class DetailPane(object):
 
     def __init__(self, stdscr, data):
@@ -245,6 +267,14 @@ class DetailPane(object):
             try:
                 self.pad.addstr(i, 0, data[i])
             except: pass
+
+    def scrollBottom(self):
+        self.linePos = self.numLines - self.screenLines
+        self.refresh()
+
+    def scrollTop(self):
+        self.linePos = 0
+        self.refresh()
 
     def scrollDown(self):
         self.linePos += 1
@@ -273,13 +303,20 @@ class DetailPane(object):
     def refresh(self):
         self.pad.refresh(self.linePos,self.colPos, 6,0, self.screenLines+5,self.screenCols-1)
 
+
+#############################
+## PARSES STDIN FOR ERRORS ##
+#############################
+
 ERROR_START = re.compile(r".*?ERROR")
 ERROR_MORE = re.compile(r"^... [0-9]*? more$")
 BLANK_LINE = re.compile(r"^\s*$")
-class stdinParser(object):
-    def __init__(self):
+class StdinParser(object):
+    def __init__(self, db):
+        self.db = db
         self.inError = False
         self.hasReadException = False
+        self.errorBuffer = []
         for line in sys.stdin:
             self.parseError(line)
             if self.inError:
@@ -290,13 +327,14 @@ class stdinParser(object):
     def parseError(self, line):
         if self.inError:
             if line.startswith("<") or (self.hasReadAt and not self.isContinuePattern(line)):
-                print("\n<<<<< ERROR END\n")
+                self.flushError()
                 self.inError = False
             self.hasReadAt = line.startswith("at ")
             #if line.startswith("at ") and not self.hasReadAt:
             #    self.hasReadAt = True
         if ERROR_START.search(line):
-            print("\n>>>>> ERROR START\n")
+            self.flushError()
+            # print("\n>>>>> ERROR START\n")
             self.inError = True
             self.hasReadAt = False
 
@@ -307,14 +345,97 @@ class stdinParser(object):
             ERROR_MORE.match(line) or \
             BLANK_LINE.match(line)
 
+    def flushError(self):
+        if self.errorBuffer:
+            shortErrorText = self.errorBuffer[0]
+            fullErrorText = ''.join(self.errorBuffer)
+            self.db.addError(shortErrorText, fullErrorText)
+            self.errorBuffer[:] = [] # python clear list magic
+            # print("\n<<<<< ERROR END\n")
+
     def printLogLine(self, line):
         print(line, end="")
 
     def printErrorLine(self, line):
+        self.errorBuffer.append(line)
         print("\033[0;31m", line, "\033[0;0m", sep="", end="")
 
+
+############################################
+## MANAGES THE CONNECTION TO THE DATABASE ##
+############################################
+
+class DBManager(object):
+    def __init__(self, file):
+        newDB = not os.path.isfile(file)
+        self.conn = sqlite3.connect(file)
+        self.cursor = self.conn.cursor()
+        if newDB:
+            self._initDB()
+
+    def _query(self, query, *params):
+        self.cursor.execute(query, params)
+        self.conn.commit()
+        return self.cursor.fetchall()
+
+    def close(self):
+        self.conn.close()
+
+    def _initDB(self):
+        self._query('''
+create table errors (
+    id integer primary key autoincrement,
+    date datetime default current_timestamp,
+    short_error text,
+    full_error text
+);
+            ''')
+
+    def addError(self, shortError, fullError):
+        self._query("insert into errors (short_error, full_error) values (?, ?)", shortError, fullError)
+
+    def fetchErrors(self):
+        queryResults = self._query("select * from errors;")
+        errorList = []
+        for queryResult in queryResults:
+            errorList.append(Error(*queryResult))
+        return errorList
+
+
+######################
+## DEFINES AN ERROR ##
+######################
+
+class Error(object):
+    def __init__(self, id, errorDatetime, shortError, fullError):
+        self.id = id
+        self.errorDatetime = errorDatetime
+        self.shortError = shortError
+        self.fullError = fullError
+
+    def getListText(self):
+        return self.errorDatetime + ": " + self.shortError
+
+
+###############
+## FUNCTIONS ##
+###############
+
+def closeDB(db):
+    db.close()
+
+
+##########
+## MAIN ##
+##########
+
 if __name__ == "__main__":
+    if len(sys.argv) < 2:
+        print("Usage: " + sys.argv[0] + " dbFile")
+        exit()
+    db = DBManager(sys.argv[1])
+    atexit.register(closeDB, db)
     if sys.stdin.isatty():
-    	curses.wrapper(MainWin)
+    	curses.wrapper(MainWin, db)
     else:
-        stdinParser()
+        StdinParser(db)
