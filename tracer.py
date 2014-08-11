@@ -41,13 +41,17 @@ class MainWin(object):
         screenLines, screenCols = self.window.getmaxyx()
         borderHorizontal = "─" * screenCols
         self.window.clear()
-        self.window.addstr(0, 0, "Title Text".center(screenCols), curses.color_pair(1));
+        self.window.addstr(0, 0, "Tracer".center(screenCols), curses.color_pair(1));
         if self.isDetailPaneOpen:
             self.window.addstr(5, 0, borderHorizontal, curses.color_pair(0))
         self.window.addstr(1, 0, borderHorizontal, curses.color_pair(0))
         self.window.addstr(screenLines - 2, 0, borderHorizontal, curses.color_pair(0))
+        if self.isDetailPaneOpen:
+            footerText = "n - next error, p - previous error, enter - close error, up/down/left/right - scroll error, q - quit"
+        else:
+            footerText = "j/n/down arrow - next error, k/p/up arrow - previous error, enter - open error, q - quit"
         try:
-            self.window.addstr(screenLines - 1, 0, " Footer Text".ljust(screenCols), curses.color_pair(1))
+            self.window.addstr(screenLines - 1, 0, (" " + footerText).ljust(screenCols), curses.color_pair(1))
         except: pass
         self.refresh()
         if self.isDetailPaneOpen:
