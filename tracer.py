@@ -442,4 +442,6 @@ if __name__ == "__main__":
     if sys.stdin.isatty():
     	curses.wrapper(MainWin, db)
     else:
-        StdinParser(db)
+        try:
+            StdinParser(db)
+        except KeyboardInterrupt: pass
