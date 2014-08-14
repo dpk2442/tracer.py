@@ -399,7 +399,7 @@ create table errors (
         self._query("insert into errors (short_error, full_error) values (?, ?)", shortError, fullError)
 
     def fetchErrors(self):
-        queryResults = self._query("select id,datetime(date,'localtime'),short_error,full_error from errors;")
+        queryResults = self._query("select id,datetime(date,'localtime'),short_error,full_error from errors order by date desc limit 1000;")
         errorList = []
         for queryResult in queryResults:
             errorList.append(Error(*queryResult))
