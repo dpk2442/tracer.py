@@ -10,7 +10,7 @@ class MainWin(object):
         self.window = stdscr
         self.db = db
         self.isDetailPaneOpen = False
-        self.detailPane = None
+        self.detailPane = DetailPane(stdscr)
         curses.init_pair(1, curses.COLOR_BLACK, curses.COLOR_WHITE)
         curses.curs_set(0) # Hide cursor
         self._setupDataList(stdscr)
@@ -20,8 +20,7 @@ class MainWin(object):
     def _setupDataList(self, stdscr):
         self.dataList = DataList(stdscr)
         for error in self.db.fetchErrors():
-            detailPad = DetailPane(stdscr, error.fullError)
-            self.dataList.addItem(error.getListText(), detailPad)
+            self.dataList.addItem(error.getListText(), error.id)
         self.dataList.scrollBottom()
 
     def refresh(self):
@@ -109,13 +108,14 @@ class MainWin(object):
 
     def openDetailPane(self):
         self.isDetailPaneOpen = True
-        self.detailPane = self.dataList.getSelection()[1]
+        errorId = self.dataList.getSelection()[1]
+        details = self.db.fetchErrorDetail(errorId)
+        self.detailPane.setData(details)
         self.dataList.shrink()
         self._redraw()
 
     def closeDetailPane(self):
         self.isDetailPaneOpen = False
-        self.detailPane = None
         self.dataList.grow()
         self._redraw()
 
@@ -243,13 +243,16 @@ class DataList(object):
 
 class DetailPane(object):
 
-    def __init__(self, stdscr, data):
+    def __init__(self, stdscr):
         screenSize = stdscr.getmaxyx()
         self.screenLines = screenSize[0] - 8
         self.screenCols = screenSize[1]
         self.linePos = 0
         self.colPos = 0
         self.numCols = 0
+        self.pad = curses.newpad(1, 1)
+
+    def setData(self, data):
         data = data.split("\n")
         if isinstance(data, str):
             data = [data]
@@ -257,7 +260,7 @@ class DetailPane(object):
         for line in data:
             if len(line) > self.numCols:
                 self.numCols = len(line)
-        self.pad = curses.newpad(self.numLines, self.numCols)
+        self.pad.resize(self.numLines, self.numCols)
         for i in range(self.numLines):
             try:
                 self.pad.addstr(i, 0, data[i])

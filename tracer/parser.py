@@ -1,4 +1,5 @@
 import re
+import sys
 
 #############################
 ## PARSES STDIN FOR ERRORS ##

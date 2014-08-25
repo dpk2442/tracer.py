@@ -35,11 +35,16 @@ create table errors (
         self._query("insert into errors (short_error, full_error) values (?, ?)", shortError, fullError)
 
     def fetchErrors(self):
-        queryResults = self._query("select id,datetime(date,'localtime'),short_error,full_error from errors order by date desc limit 750;")
+        queryResults = self._query("select id,datetime(date,'localtime'),short_error from errors order by date desc;")
         errorList = []
         for queryResult in reversed(queryResults):
             errorList.append(Error(*queryResult))
         return errorList
+
+    def fetchErrorDetail(self, errorId):
+        results = self._query("select full_error from errors where id = ? limit 1;", errorId)
+        result = results[0]
+        return result[0]
 
 
 ######################
@@ -47,11 +52,10 @@ create table errors (
 ######################
 
 class Error(object):
-    def __init__(self, id, errorDatetime, shortError, fullError):
+    def __init__(self, id, errorDatetime, shortError):
         self.id = id
         self.errorDatetime = errorDatetime
         self.shortError = shortError
-        self.fullError = fullError
 
     def getListText(self):
         return self.errorDatetime + ": " + self.shortError
