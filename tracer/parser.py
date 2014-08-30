@@ -1,5 +1,25 @@
 import re
 import sys
+from tracer.config import config
+
+###########
+## UTILS ##
+###########
+
+_excludePatterns = config["excludePatterns"]
+EXCLUDE_PATTERNS = []
+for key in _excludePatterns:
+    pattern = _excludePatterns[key]
+    try:
+        EXCLUDE_PATTERNS.append(re.compile(pattern))
+    except:
+        raise Exception("Error compiling regex " + key)
+
+def isExcludedError(s):
+    for pattern in EXCLUDE_PATTERNS:
+        if (pattern.search(s)): return True
+    return False
+
 
 #############################
 ## PARSES STDIN FOR ERRORS ##
@@ -30,6 +50,9 @@ class StdinParser(object):
             #if line.startswith("at ") and not self.hasReadAt:
             #    self.hasReadAt = True
         if ERROR_START.search(line):
+            if isExcludedError(line):
+                self.inError = False
+                return
             self.flushError()
             # print("\n>>>>> ERROR START\n")
             self.inError = True
@@ -55,4 +78,7 @@ class StdinParser(object):
 
     def printErrorLine(self, line):
         self.errorBuffer.append(line)
-        print("\033[0;31m", line, "\033[0;0m", sep="", end="")
+        if (config.getboolean("tracer", "highlightErrors")):
+            print(config["tracer"]["errorColor"], line, "\033[0;0m", sep="", end="")
+        else:
+            print(line, end="")

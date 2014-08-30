@@ -15,7 +15,7 @@ _defaultConfig = """\
     
     # command line error color highlighting
     highlightErrors = true
-    errorColor = \033[0;0m
+    errorColor = \033[0;31m
     
     # main screen colors
     backgroundColor = black

@@ -12,17 +12,17 @@ ERROR_HIGHLIGHT_COLORS = 3
 
 def getCursesColor(s):
     s = s.lower()
-    if   s == 'black':   return curses.COLOR_BLACK
-    elif s == 'blue':    return curses.COLOR_BLUE
-    elif s == 'cyan':    return curses.COLOR_CYAN
-    elif s == 'green':   return curses.COLOR_GREEN
-    elif s == 'magenta': return curses.COLOR_MAGENTA
-    elif s == 'red':     return curses.COLOR_RED
-    elif s == 'white':   return curses.COLOR_WHITE
-    elif s == 'yellow':  return curses.COLOR_YELLOW
+    if   s == "black":   return curses.COLOR_BLACK
+    elif s == "blue":    return curses.COLOR_BLUE
+    elif s == "cyan":    return curses.COLOR_CYAN
+    elif s == "green":   return curses.COLOR_GREEN
+    elif s == "magenta": return curses.COLOR_MAGENTA
+    elif s == "red":     return curses.COLOR_RED
+    elif s == "white":   return curses.COLOR_WHITE
+    elif s == "yellow":  return curses.COLOR_YELLOW
     return curses.COLOR_BLACK
 
-_highlightPatterns = config['highlightPatterns']
+_highlightPatterns = config["highlightPatterns"]
 ERROR_HIGHLIGHT_PATTERNS = []
 for key in _highlightPatterns:
     pattern = _highlightPatterns[key]
@@ -31,7 +31,7 @@ for key in _highlightPatterns:
     except:
         raise Exception("Error compiling regex " + key)
 
-def doesStringMatchPatterns(s):
+def isHighlightedErrorLine(s):
     for pattern in ERROR_HIGHLIGHT_PATTERNS:
         if (pattern.search(s)): return True
     return False
@@ -49,16 +49,16 @@ class MainWin(object):
         self.isDetailPaneOpen = False
         self.detailPane = DetailPane(stdscr)
         # colors
-        foregroundColor = getCursesColor(config['tracer']['foregroundColor'])
-        backgroundColor = getCursesColor(config['tracer']['backgroundColor'])
+        foregroundColor = getCursesColor(config["tracer"]["foregroundColor"])
+        backgroundColor = getCursesColor(config["tracer"]["backgroundColor"])
         curses.init_pair(REGULAR_COLORS, foregroundColor, backgroundColor)
         # inverted colors
-        foregroundInvertedColor = getCursesColor(config['tracer']['foregroundInvertedColor'])
-        backgroundInvertedColor = getCursesColor(config['tracer']['backgroundInvertedColor'])
+        foregroundInvertedColor = getCursesColor(config["tracer"]["foregroundInvertedColor"])
+        backgroundInvertedColor = getCursesColor(config["tracer"]["backgroundInvertedColor"])
         curses.init_pair(INVERTED_COLORS, foregroundInvertedColor, backgroundInvertedColor)
         # error highlight colors
-        foregroundErrorHighlightColor = getCursesColor(config['tracer']['foregroundErrorHighlightColor'])
-        backgroundErrorHighlightColor = getCursesColor(config['tracer']['backgroundErrorHighlightColor'])
+        foregroundErrorHighlightColor = getCursesColor(config["tracer"]["foregroundErrorHighlightColor"])
+        backgroundErrorHighlightColor = getCursesColor(config["tracer"]["backgroundErrorHighlightColor"])
         curses.init_pair(ERROR_HIGHLIGHT_COLORS, foregroundErrorHighlightColor, backgroundErrorHighlightColor)
         curses.curs_set(0) # Hide cursor
         self._setupDataList(stdscr)
@@ -96,45 +96,45 @@ class MainWin(object):
             self.detailPane.refresh()
 
     def _listenForKeys(self):
-        key = ''
-        while (key != ord('q')):
+        key = ""
+        while (key != ord("q")):
             key = self.window.getch()
             # k or up arrow
-            if key == ord('k') or key == curses.KEY_UP:
+            if key == ord("k") or key == curses.KEY_UP:
                 if not self.isDetailPaneOpen:
                     self.dataList.scrollUp()
                 else:
                     self.detailPane.scrollUp()
             # j or down arrow
-            elif key == ord('j') or key == curses.KEY_DOWN:
+            elif key == ord("j") or key == curses.KEY_DOWN:
                 if not self.isDetailPaneOpen:
                     self.dataList.scrollDown()
                 else:
                     self.detailPane.scrollDown()
             # h or left arrow
-            elif key == ord('h') or key == curses.KEY_LEFT:
+            elif key == ord("h") or key == curses.KEY_LEFT:
                 if self.isDetailPaneOpen:
                     self.detailPane.scrollLeft()
             # l or right arrow
-            elif key == ord('l') or key == curses.KEY_RIGHT:
+            elif key == ord("l") or key == curses.KEY_RIGHT:
                 if self.isDetailPaneOpen:
                     self.detailPane.scrollRight()
             # n
-            elif key == ord('n'):
+            elif key == ord("n"):
                 self.dataList.scrollDown()
                 self.openDetailPane()
             # p
-            elif key == ord('p'):
+            elif key == ord("p"):
                 self.dataList.scrollUp()
                 self.openDetailPane()
             # g or home key
-            elif key == ord('g') or key == curses.KEY_HOME:
+            elif key == ord("g") or key == curses.KEY_HOME:
                 if not self.isDetailPaneOpen:
                     self.dataList.scrollTop()
                 else:
                     self.detailPane.scrollTop()
             # G or end key
-            elif key == ord('G') or key == curses.KEY_END:
+            elif key == ord("G") or key == curses.KEY_END:
                 if not self.isDetailPaneOpen:
                     self.dataList.scrollBottom()
                 else:
@@ -148,7 +148,7 @@ class MainWin(object):
                 if not self.isDetailPaneOpen:
                     self.dataList.scrollPageDown()
             # enter
-            elif key == ord('\n'):
+            elif key == ord("\n"):
                 if not self.isDetailPaneOpen:
                     self.openDetailPane()
                 else:
@@ -218,7 +218,7 @@ class DataList(object):
         return (self.items[self.index], self.itemData[self.index])
 
     def _fixScroll(self):
-        ''' Change the screenPos without changing index so there is no whitespace after the last line. '''
+        """ Change the screenPos without changing index so there is no whitespace after the last line. """
         if self.index + (self.screenLines - self.screenPos) >= self.numItems:
             self.screenPos = self.screenLines - (self.numItems - self.index)
             self.redraw()
@@ -316,7 +316,7 @@ class DetailPane(object):
         for i in range(self.numLines):
             try:
                 s = data[i]
-                if doesStringMatchPatterns(s):
+                if isHighlightedErrorLine(s):
                     colors = curses.color_pair(ERROR_HIGHLIGHT_COLORS)
                 else:
                     colors = curses.color_pair(REGULAR_COLORS)
