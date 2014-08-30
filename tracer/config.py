@@ -36,7 +36,6 @@ _defaultConfig = """\
 # These will be run against every line of the error.
 [highlightPatterns]
     # example = java\.util
-    pgbu = com\.oracle\.pgbu
 """
 
 CONFIG_PATH = '.tracer.ini'
