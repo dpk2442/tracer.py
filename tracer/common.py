@@ -55,7 +55,7 @@ class Error(object):
     def __init__(self, id, errorDatetime, shortError):
         self.id = id
         self.errorDatetime = errorDatetime
-        self.shortError = shortError
+        self.shortError = shortError.strip()
 
     def getListText(self):
         return self.errorDatetime + ": " + self.shortError

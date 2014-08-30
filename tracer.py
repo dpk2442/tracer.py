@@ -4,6 +4,7 @@
 import atexit
 import sys
 from tracer.common import DBManager
+from tracer.config import config
 
 
 def closeDB(db):

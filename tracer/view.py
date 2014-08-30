@@ -1,4 +1,41 @@
 import curses
+import re
+from tracer.config import config
+
+##################
+## CURSES UTILS ##
+##################
+
+REGULAR_COLORS = 1
+INVERTED_COLORS = 2
+ERROR_HIGHLIGHT_COLORS = 3
+
+def getCursesColor(s):
+    s = s.lower()
+    if   s == 'black':   return curses.COLOR_BLACK
+    elif s == 'blue':    return curses.COLOR_BLUE
+    elif s == 'cyan':    return curses.COLOR_CYAN
+    elif s == 'green':   return curses.COLOR_GREEN
+    elif s == 'magenta': return curses.COLOR_MAGENTA
+    elif s == 'red':     return curses.COLOR_RED
+    elif s == 'white':   return curses.COLOR_WHITE
+    elif s == 'yellow':  return curses.COLOR_YELLOW
+    return curses.COLOR_BLACK
+
+_highlightPatterns = config['highlightPatterns']
+ERROR_HIGHLIGHT_PATTERNS = []
+for key in _highlightPatterns:
+    pattern = _highlightPatterns[key]
+    try:
+        ERROR_HIGHLIGHT_PATTERNS.append(re.compile(pattern))
+    except:
+        raise Exception("Error compiling regex " + key)
+
+def doesStringMatchPatterns(s):
+    for pattern in ERROR_HIGHLIGHT_PATTERNS:
+        if (pattern.search(s)): return True
+    return False
+
 
 ########################
 ## MAIN WINDOW OBJECT ##
@@ -11,7 +48,18 @@ class MainWin(object):
         self.db = db
         self.isDetailPaneOpen = False
         self.detailPane = DetailPane(stdscr)
-        curses.init_pair(1, curses.COLOR_BLACK, curses.COLOR_WHITE)
+        # colors
+        foregroundColor = getCursesColor(config['tracer']['foregroundColor'])
+        backgroundColor = getCursesColor(config['tracer']['backgroundColor'])
+        curses.init_pair(REGULAR_COLORS, foregroundColor, backgroundColor)
+        # inverted colors
+        foregroundInvertedColor = getCursesColor(config['tracer']['foregroundInvertedColor'])
+        backgroundInvertedColor = getCursesColor(config['tracer']['backgroundInvertedColor'])
+        curses.init_pair(INVERTED_COLORS, foregroundInvertedColor, backgroundInvertedColor)
+        # error highlight colors
+        foregroundErrorHighlightColor = getCursesColor(config['tracer']['foregroundErrorHighlightColor'])
+        backgroundErrorHighlightColor = getCursesColor(config['tracer']['backgroundErrorHighlightColor'])
+        curses.init_pair(ERROR_HIGHLIGHT_COLORS, foregroundErrorHighlightColor, backgroundErrorHighlightColor)
         curses.curs_set(0) # Hide cursor
         self._setupDataList(stdscr)
         self._redraw()
@@ -31,17 +79,17 @@ class MainWin(object):
         screenLines, screenCols = self.window.getmaxyx()
         borderHorizontal = "─" * screenCols
         self.window.clear()
-        self.window.addstr(0, 0, "Tracer".center(screenCols), curses.color_pair(1));
+        self.window.addstr(0, 0, "Tracer".center(screenCols), curses.color_pair(INVERTED_COLORS));
         if self.isDetailPaneOpen:
-            self.window.addstr(5, 0, borderHorizontal, curses.color_pair(0))
-        self.window.addstr(1, 0, borderHorizontal, curses.color_pair(0))
-        self.window.addstr(screenLines - 2, 0, borderHorizontal, curses.color_pair(0))
+            self.window.addstr(5, 0, borderHorizontal, curses.color_pair(REGULAR_COLORS))
+        self.window.addstr(1, 0, borderHorizontal, curses.color_pair(REGULAR_COLORS))
+        self.window.addstr(screenLines - 2, 0, borderHorizontal, curses.color_pair(REGULAR_COLORS))
         if self.isDetailPaneOpen:
             footerText = "n - next error, p - previous error, enter - close error, up/down/left/right - scroll error, q - quit"
         else:
             footerText = "j/n/down arrow - next error, k/p/up arrow - previous error, enter - open error, q - quit"
         try:
-            self.window.addstr(screenLines - 1, 0, (" " + footerText).ljust(screenCols), curses.color_pair(1))
+            self.window.addstr(screenLines - 1, 0, (" " + footerText).ljust(screenCols), curses.color_pair(INVERTED_COLORS))
         except: pass
         self.refresh()
         if self.isDetailPaneOpen:
@@ -147,13 +195,16 @@ class DataList(object):
         endIndex = self.index + (self.screenLines - self.screenPos)
         if endIndex > self.numItems: endIndex = self.numItems
         lineCount = 0
+        width = self.screenCols - 1
         for i in range(startIndex, endIndex):
             if i == self.index:
-                mode = curses.A_REVERSE
+                colors = curses.color_pair(INVERTED_COLORS)
             else:
-                mode = curses.A_NORMAL
+                colors = curses.color_pair(REGULAR_COLORS)
             try:
-                self.window.addstr(lineCount, 0, " " + self.items[i].ljust(self.screenCols - 1), mode)
+                lineStr = self.items[i]
+                lineStr = " " + lineStr[:width].ljust(width, " ")
+                self.window.addstr(lineCount, 0, lineStr, colors)
             except: pass
             lineCount += 1
         self.window.refresh()
@@ -260,10 +311,16 @@ class DetailPane(object):
         for line in data:
             if len(line) > self.numCols:
                 self.numCols = len(line)
+        self.pad.clear()
         self.pad.resize(self.numLines, self.numCols)
         for i in range(self.numLines):
             try:
-                self.pad.addstr(i, 0, data[i])
+                s = data[i]
+                if doesStringMatchPatterns(s):
+                    colors = curses.color_pair(ERROR_HIGHLIGHT_COLORS)
+                else:
+                    colors = curses.color_pair(REGULAR_COLORS)
+                self.pad.addstr(i, 0, s, colors)
             except: pass
 
     def scrollBottom(self):
