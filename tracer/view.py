@@ -309,14 +309,18 @@ class DetailPane(object):
         self.screenCols = screenSize[1]
         self.linePos = 0
         self.colPos = 0
-        self.numCols = 0
         self.pad = curses.newpad(1, 1)
 
     def setData(self, data):
+        # reset position
+        self.linePos = 0
+        self.colPos = 0
+        # load new data
         data = data.split("\n")
         if isinstance(data, str):
             data = [data]
         self.numLines = len(data)
+        self.numCols = 0
         for line in data:
             if len(line) > self.numCols:
                 self.numCols = len(line)
