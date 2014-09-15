@@ -4,6 +4,18 @@ Parses stdin for Java exceptions and saves them to a database.
 
 When run with stdin attached to a tty, it will display the errors in a curses interface.
 
+## Dependencies
+
+### Required
+
+- Python 3
+- SQLite 3
+
+### Optional
+
+- Pyperclip (For copy functionality. Available through pip.)
+  - If on Linux, `xclip` is recommended for pyperclip
+
 ## Configuration
 
 Tracer uses an ini file for configuration. There are default values, but they can

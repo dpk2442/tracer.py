@@ -2,6 +2,12 @@ import curses
 import re
 from tracer.config import config
 
+try:
+    import pyperclip
+    PYPERCLIP_AVAILABLE = True
+except ImportError:
+    PYPERCLIP_AVAILABLE = False
+
 ##################
 ## CURSES UTILS ##
 ##################
@@ -85,7 +91,8 @@ class MainWin(object):
         self.window.addstr(1, 0, borderHorizontal, curses.color_pair(REGULAR_COLORS))
         self.window.addstr(screenLines - 2, 0, borderHorizontal, curses.color_pair(REGULAR_COLORS))
         if self.isDetailPaneOpen:
-            footerText = "n - next error, p - previous error, enter - close error, up/down/left/right - scroll error, q - quit"
+            copyStr = "c - copy, " if PYPERCLIP_AVAILABLE else ""
+            footerText = "n - next error, p - previous error, enter - close error, up/down/left/right - scroll error, " + copyStr + "q - quit"
         else:
             footerText = "j/n/down arrow - next error, k/p/up arrow - previous error, enter - open error, r - reload, q - quit"
         try:
@@ -162,6 +169,10 @@ class MainWin(object):
                 if not self.isDetailPaneOpen:
                     self.__init__(self.window, self.db)
                     return
+            # c
+            elif key == ord("c"):
+                if self.isDetailPaneOpen:
+                    self.detailPane.copyToClipboard()
 
     def openDetailPane(self):
         self.isDetailPaneOpen = True
@@ -316,6 +327,7 @@ class DetailPane(object):
         self.linePos = 0
         self.colPos = 0
         # load new data
+        self.text = data
         data = data.split("\n")
         if isinstance(data, str):
             data = [data]
@@ -379,6 +391,10 @@ class DetailPane(object):
         if self.linePos + self.screenLines >= self.numLines:
             self.linePos = self.numLines - self.screenLines
         self.refresh()
+
+    def copyToClipboard(self):
+        if PYPERCLIP_AVAILABLE:
+            pyperclip.copy(self.text)
 
     def refresh(self):
         self.pad.refresh(self.linePos,self.colPos, 6,0, self.screenLines+5,self.screenCols-1)
