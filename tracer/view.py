@@ -87,7 +87,7 @@ class MainWin(object):
         if self.isDetailPaneOpen:
             footerText = "n - next error, p - previous error, enter - close error, up/down/left/right - scroll error, q - quit"
         else:
-            footerText = "j/n/down arrow - next error, k/p/up arrow - previous error, enter - open error, q - quit"
+            footerText = "j/n/down arrow - next error, k/p/up arrow - previous error, enter - open error, r - reload, q - quit"
         try:
             self.window.addstr(screenLines - 1, 0, (" " + footerText).ljust(screenCols), curses.color_pair(INVERTED_COLORS))
         except: pass
@@ -153,6 +153,11 @@ class MainWin(object):
                     self.openDetailPane()
                 else:
                     self.closeDetailPane()
+            # r
+            elif key == ord("r"):
+                if not self.isDetailPaneOpen:
+                    self.__init__(self.window, self.db)
+                    return
 
     def openDetailPane(self):
         self.isDetailPaneOpen = True
