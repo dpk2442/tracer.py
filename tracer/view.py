@@ -143,10 +143,14 @@ class MainWin(object):
             elif key == curses.KEY_PPAGE:
                 if not self.isDetailPaneOpen:
                     self.dataList.scrollPageUp()
+                else:
+                    self.detailPane.scrollPageUp()
             # page down
             elif key == curses.KEY_NPAGE:
                 if not self.isDetailPaneOpen:
                     self.dataList.scrollPageDown()
+                else:
+                    self.detailPane.scrollPageDown()
             # enter
             elif key == ord("\n"):
                 if not self.isDetailPaneOpen:
@@ -358,6 +362,18 @@ class DetailPane(object):
         self.colPos -= 5
         if self.colPos < 0:
             self.colPos = 0
+        self.refresh()
+
+    def scrollPageUp(self):
+        self.linePos -= self.screenLines
+        if self.linePos < 0:
+            self.linePos = 0
+        self.refresh()
+
+    def scrollPageDown(self):
+        self.linePos += self.screenLines
+        if self.linePos + self.screenLines >= self.numLines:
+            self.linePos = self.numLines - self.screenLines
         self.refresh()
 
     def refresh(self):
