@@ -4,8 +4,6 @@
 import atexit
 import sys
 from tracer.common import DBManager
-from tracer.config import config
-
 
 def closeDB(db):
     db.close()
@@ -23,6 +21,4 @@ if __name__ == "__main__":
         wrapper(MainWin, db)
     else:
         from tracer.parser import StdinParser
-        try:
-            StdinParser(db)
-        except KeyboardInterrupt: pass
+        StdinParser(db)

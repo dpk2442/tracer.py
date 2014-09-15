@@ -34,12 +34,16 @@ class StdinParser(object):
         self.inError = False
         self.hasReadException = False
         self.errorBuffer = []
-        for line in sys.stdin:
-            self.parseError(line)
-            if self.inError:
-                self.printErrorLine(line)
-            else:
-                self.printLogLine(line)
+        try:
+            for line in sys.stdin:
+                self.parseError(line)
+                if self.inError:
+                    self.printErrorLine(line)
+                else:
+                    self.printLogLine(line)
+        except KeyboardInterrupt: pass
+        finally:
+            self.flushError()
 
     def parseError(self, line):
         if self.inError:
@@ -79,6 +83,8 @@ class StdinParser(object):
     def printErrorLine(self, line):
         self.errorBuffer.append(line)
         if (config.getboolean("tracer", "highlightErrors")):
-            print(config["tracer"]["errorColor"], line, "\033[0;0m", sep="", end="")
+            # replace \\033 (string version) with \033 (character)
+            errorColor = config["tracer"]["errorColor"].replace("\\033", "\033")
+            print(errorColor, line, "\033[0;0m", sep="", end="")
         else:
             print(line, end="")
